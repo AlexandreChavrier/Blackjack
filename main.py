@@ -14,9 +14,6 @@ class Card:
 
 # Function to create the deck of 52 cards
 def create_blackjack_deck():
-    global player_score
-    global dealer_score
-
     values = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
     colors = {"\u2665" : "red"
               , "\u2666" : "red"
@@ -29,14 +26,10 @@ def create_blackjack_deck():
             if value in ["J", "Q", "K"]:
                 card_value = 10
             elif value == "A":
-                if player_score or dealer_score < 21:
-                    card_value = 11
-                else:
-                    card_value = 1
+                card_value = 11
             else:
                 card_value = int(value)
 
-            # Add styling when creating the Card object, which is done in display functions
             card = Card(f"[bold grey3 on bright_white]{value}[/bold grey3 on bright_white]", 
                         f"[bold {colors.get(color)} on bright_white]{color}[/bold {colors.get(color)} on bright_white]", card_value)
             deck.append(card)
@@ -51,58 +44,61 @@ def deal(deck, nbr_cards):
         deck.remove(cards)
     return drawn_cards
 
+def create_panel(title, content, score=None):
+    if score is not None:
+        content += f"\nCards point : {score}"
+    return Panel.fit(content, title=title, padding=(1, 2))
+
+def print_panels(*panels):
+    console.print(Columns(panels))
+
+def calculate_score(hand):
+    score = sum(card.valeur for card in hand)
+    num_aces = sum(1 for card in hand if card.nom.startswith('A'))
+
+    while score > 21 and num_aces:
+        score -= 10  
+        num_aces -= 1
+
+    return score
+
 # function for the player's hand
-def players_start_hand():
-    global player_score
-    global spaces
-
-    player_hand = deal(new_deck, 2)
+def players_start_hand(deck):
+    player_hand = deal(deck, 2)
     cards_text_player = " ".join([f"{card.nom}{card.couleur}" for card in player_hand])
-    player_score = sum(card.valeur for card in player_hand)
-    panel_player = Panel.fit(f"{spaces}{cards_text_player}", title="Player's hand", padding=(1, 2))
-    panel_player_score = Panel.fit(f"Cards point : {player_score}", title="Player's score", padding=(1, 2))
+    player_score = calculate_score(player_hand)
+    panel_player = create_panel("Player's hand", cards_text_player, player_score)
+    print_panels(panel_player)
+    return player_hand, player_score
 
-    if player_score == 21:
-        console.print(Columns([panel_player, panel_player_score]))
-        print("Blackjack, wait for the dealer")
-    else:
-        console.print(Columns([panel_player, panel_player_score]))
 
 # function for the dealer's hand
-def dealers_start_hand():
-    global dealer_score
-    global dealer_hand
-    global spaces
-
-    dealer_hand = deal(new_deck, 2)
+def dealers_start_hand(deck):
+    dealer_hand = deal(deck, 2)
     visible_card = dealer_hand[0]
     cards_text_dealer = f"{visible_card.nom}{visible_card.couleur} ?"
     dealer_score = visible_card.valeur
-    panel_dealer = Panel.fit(f"{spaces}{cards_text_dealer}", title="Dealer's hand", padding=(1, 2))
-    panel_dealer_score = Panel.fit(f"Cards point : {dealer_score}", title="Dealer's score", padding=(1, 2))
-    console.print(Columns([panel_dealer, panel_dealer_score]))
+    panel_dealer = create_panel("Dealer's hand", cards_text_dealer, dealer_score)
+    print_panels(panel_dealer)
+    return dealer_hand, dealer_score
+
 
 # function for the turn of the dealer
-def dealers_turn():
-    global player_score
-    global dealer_score
-    global dealer_hand
-
-    full_cards_text_dealer = " ".join([f"{card.nom}{card.couleur}" for card in dealer_hand])
-    dealer_score = sum(card.valeur for card in dealer_hand)
-    panel_dealer = Panel.fit(f"{spaces}{full_cards_text_dealer}", title="Dealer's full hand", padding=(1, 2))
-    panel_dealer_score = Panel.fit(f"Cards point : {dealer_score}", title="Dealer's score", padding=(1, 2))
-    console.print(Columns([panel_dealer, panel_dealer_score]))
+def dealers_turn(deck, player_score, dealer_hand):
+    full_cards_text = " ".join([f"{card.nom}{card.couleur}" for card in dealer_hand])
+    dealer_score = calculate_score(dealer_hand)
+    panel_dealer = create_panel("Dealer's hand", full_cards_text, dealer_score)
+    print_panels(panel_dealer)
 
     while dealer_score < 17:
-        dealers_response = console.input("ENTER to continue")
-        if dealers_response == "":
-            new_hit = deal(new_deck, 1)[0]
-            new_hit_text = f"{new_hit.nom}{new_hit.couleur}"
-            dealer_score = dealer_score + new_hit.valeur
-            new_panel_dealer = Panel.fit(f"{spaces}{new_hit_text}", title="New card", padding=(1, 2))
-            new_panel_dealer_score = Panel.fit(f"Cards point : {dealer_score}", title="Player's score", padding=(1, 2))
-            console.print(Columns([new_panel_dealer, new_panel_dealer_score]))
+        console.input("ENTER to continue")
+        new_hit = deal(deck, 1)[0]
+        dealer_hand.append(new_hit)
+        dealer_score = calculate_score(dealer_hand)
+        new_hit_text = f"{new_hit.nom}{new_hit.couleur}"
+        panel_new_card = create_panel("New card", new_hit_text, dealer_score)
+        print_panels(panel_new_card)
+
     if dealer_score == 21 and player_score == 21:
         print("Push")
     elif dealer_score > 21:
@@ -116,56 +112,39 @@ def dealers_turn():
 
 
 # function for the gameplay
-def gameplay():
-    global player_score
-    global dealer_score
-    global dealer_hand
-    i = 0
+def gameplay(deck):
+    player_hand, player_score = players_start_hand(deck)
+    dealer_hand, dealer_score = dealers_start_hand(deck)
 
-    console.input("Type ENTER to begin the game\n")
-    players_start_hand()
-    dealers_start_hand()
-
-    while i == 0:
+    while True:
         response = console.input("Stand or hit ? (s/h)\n")
         if response == "h":
-            new_hit = deal(new_deck, 1)[0]
+            new_hit = deal(deck, 1)[0]
+            player_hand.append(new_hit)
             new_hit_text = f"{new_hit.nom}{new_hit.couleur}"
-            player_score = player_score + new_hit.valeur
-            new_panel_player = Panel.fit(f"{spaces}{new_hit_text}", title="New card", padding=(1, 2))
-            new_panel_player_score = Panel.fit(f"Cards point : {player_score}", title="Player's score", padding=(1, 2))
-            console.print(Columns([new_panel_player, new_panel_player_score]))
+            player_score = calculate_score(player_hand)
+            new_panel = create_panel("New hand", new_hit_text, player_score)
+            print_panels(new_panel)
             if player_score > 21:
-                i = 1
                 print("You bust")
+                return
         if response == "s":
-            i = 1
-            dealers_turn()
-    
-    
+            dealers_turn(deck, player_score, dealer_hand)
+            return
+
 # Function for the gameplay
 def game_state():
-    global new_deck
-    global player_score
-    global dealer_score
-    global money
-    global spaces
-    
-    spaces = "    "
-    money = 100
-    player_score = 0
-    dealer_score = 0
-    new_deck = create_blackjack_deck()
+    deck = create_blackjack_deck()
+    while True:
+        console.input("Press ENTER to begin the game\n")
+        gameplay(deck)
+        if console.input("Do you want to continue ? (ENTER/n)") == "n":
+            break
 
-    gameplay()
-    state = console.input("Do you wannna continue ? (y/n)")
+if __name__ == "__main__":
+    game_state()
 
-    if state == "y":
-        game_state()
-    elif state == "n":
-        return 
 
-game_state()
 # print(len(new_deck))
 
 
