@@ -1,19 +1,16 @@
 import random
 from rich.console import Console
 from rich import print 
-from rich.highlighter import RegexHighlighter
-from rich.theme import Theme
-from rich.text import Text
+from rich.panel import Panel
+from rich.columns import Columns
 
 console = Console()
-
 
 class Card:
     def __init__(self, nom, couleur, valeur):
         self.nom = nom
         self.couleur = couleur
         self.valeur = valeur
-
 
 # Function to create the deck of 52 cards
 def create_blackjack_deck():
@@ -57,29 +54,33 @@ def deal(deck, nbr_cards):
 # function for the player's hand
 def players_start_hand():
     global player_score
-    global dealer_score
+    global spaces
 
     player_hand = deal(new_deck, 2)
     cards_text_player = " ".join([f"{card.nom}{card.couleur}" for card in player_hand])
     player_score = sum(card.valeur for card in player_hand)
+    panel_player = Panel.fit(f"{spaces}{cards_text_player}", title="Player's hand", padding=(1, 2))
+    panel_player_score = Panel.fit(f"Cards point : {player_score}", title="Player's score", padding=(1, 2))
 
     if player_score == 21:
-        print(f"Your hand : {cards_text_player}\nValue : {player_score}\n")
+        console.print(Columns([panel_player, panel_player_score]))
         print("Blackjack, wait for the dealer")
     else:
-        print(f"Your hand : {cards_text_player}\nValue : {player_score}\n")
+        console.print(Columns([panel_player, panel_player_score]))
 
 # function for the dealer's hand
 def dealers_start_hand():
-    global player_score
     global dealer_score
     global dealer_hand
+    global spaces
 
     dealer_hand = deal(new_deck, 2)
     visible_card = dealer_hand[0]
     cards_text_dealer = f"{visible_card.nom}{visible_card.couleur} ?"
     dealer_score = visible_card.valeur
-    print(f"Dealer's hand : {cards_text_dealer}\nValue : {dealer_score}\n")
+    panel_dealer = Panel.fit(f"{spaces}{cards_text_dealer}", title="Dealer's hand", padding=(1, 2))
+    panel_dealer_score = Panel.fit(f"Cards point : {dealer_score}", title="Dealer's score", padding=(1, 2))
+    console.print(Columns([panel_dealer, panel_dealer_score]))
 
 # function for the turn of the dealer
 def dealers_turn():
@@ -87,16 +88,21 @@ def dealers_turn():
     global dealer_score
     global dealer_hand
 
-    cards_text_dealer = " ".join([f"{card.nom}{card.couleur}" for card in dealer_hand])
+    full_cards_text_dealer = " ".join([f"{card.nom}{card.couleur}" for card in dealer_hand])
     dealer_score = sum(card.valeur for card in dealer_hand)
-    print(f"Dealer's hand : {cards_text_dealer}\nValue : {dealer_score}\n")
+    panel_dealer = Panel.fit(f"{spaces}{full_cards_text_dealer}", title="Dealer's full hand", padding=(1, 2))
+    panel_dealer_score = Panel.fit(f"Cards point : {dealer_score}", title="Dealer's score", padding=(1, 2))
+    console.print(Columns([panel_dealer, panel_dealer_score]))
 
     while dealer_score < 17:
         dealers_response = console.input("ENTER to continue")
         if dealers_response == "":
             new_hit = deal(new_deck, 1)[0]
+            new_hit_text = f"{new_hit.nom}{new_hit.couleur}"
             dealer_score = dealer_score + new_hit.valeur
-            print(f"\nNew dealer's card : {new_hit.nom}{new_hit.couleur}\nTotal value : {dealer_score}\n")
+            new_panel_dealer = Panel.fit(f"{spaces}{new_hit_text}", title="New card", padding=(1, 2))
+            new_panel_dealer_score = Panel.fit(f"Cards point : {dealer_score}", title="Player's score", padding=(1, 2))
+            console.print(Columns([new_panel_dealer, new_panel_dealer_score]))
     if dealer_score == 21 and player_score == 21:
         print("Push")
     elif dealer_score > 21:
@@ -124,8 +130,11 @@ def gameplay():
         response = console.input("Stand or hit ? (s/h)\n")
         if response == "h":
             new_hit = deal(new_deck, 1)[0]
+            new_hit_text = f"{new_hit.nom}{new_hit.couleur}"
             player_score = player_score + new_hit.valeur
-            print(f"\nNew card : {new_hit.nom}{new_hit.couleur}\nTotal value : {player_score}\n")
+            new_panel_player = Panel.fit(f"{spaces}{new_hit_text}", title="New card", padding=(1, 2))
+            new_panel_player_score = Panel.fit(f"Cards point : {player_score}", title="Player's score", padding=(1, 2))
+            console.print(Columns([new_panel_player, new_panel_player_score]))
             if player_score > 21:
                 i = 1
                 print("You bust")
@@ -139,7 +148,11 @@ def game_state():
     global new_deck
     global player_score
     global dealer_score
+    global money
+    global spaces
     
+    spaces = "    "
+    money = 100
     player_score = 0
     dealer_score = 0
     new_deck = create_blackjack_deck()
@@ -153,16 +166,7 @@ def game_state():
         return 
 
 game_state()
-print(len(new_deck))
+# print(len(new_deck))
 
-
-# # Define default color of numbers by bright_white (default color is cyan with Rich)
-# class NumHighlighter(RegexHighlighter):
-
-#     base_style = "example."
-#     highlights = [r"\b\d+\b"]
-
-# theme = Theme({"example.1": "bold bright_white"})
-# console = Console(highlighter=NumHighlighter(), theme=theme)
 
 
